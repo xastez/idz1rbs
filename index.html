@@ -1,0 +1,255 @@
+﻿<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajax Лабораторна №2 (Node.js)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+            color: #333;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            width: 320px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        h4 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #ffa500;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+            button:hover {
+                background-color: #e69500;
+            }
+
+        .result {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 13px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            min-height: 50px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h4>Кількість підлеглих (TEXT)</h4>
+            <select id="chief_name">
+                <option value="">Завантаження...</option>
+            </select>
+            <button onclick="getWorkersText()">Отримати</button>
+            <div id="res_text" class="result"></div>
+        </div>
+
+        <div class="card">
+            <h4>Час на проєкт (XML)</h4>
+            <select id="project_id_xml">
+                <option value="">Завантаження...</option>
+            </select>
+            <button onclick="getProjectTimeXML()">Отримати</button>
+            <div id="res_xml" class="result"></div>
+        </div>
+
+        <div class="card">
+            <h4>Завдання (JSON)</h4>
+            <select id="project_id_json" onchange="updateDates()">
+                <option value="">Оберіть проєкт...</option>
+            </select>
+
+            <select id="task_date_select">
+                <option value="">Спочатку оберіть проєкт</option>
+            </select>
+
+            <button onclick="getTasksJSON()">Отримати</button>
+            <div id="res_json" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+    // Автоматичне завантаження даних у списки при старті сторінки (Заміна PHP циклів foreach)
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch('/api/init-data')
+            .then(res => res.json())
+            .then(data => {
+                const chiefSelect = document.getElementById('chief_name');
+                const xmlProjSelect = document.getElementById('project_id_xml');
+                const jsonProjSelect = document.getElementById('project_id_json');
+
+                chiefSelect.innerHTML = "";
+                xmlProjSelect.innerHTML = "";
+                jsonProjSelect.innerHTML = "<option value=''>Оберіть проєкт...</option>";
+
+                data.chiefs.forEach(c => {
+                    chiefSelect.innerHTML += `<option value="${c.chief}">${c.chief}</option>`;
+                });
+
+                data.projects.forEach(p => {
+                    const opt = `<option value="${p.ID_PROJECTS}">${p.name}</option>`;
+                    xmlProjSelect.innerHTML += opt;
+                    jsonProjSelect.innerHTML += opt;
+                });
+            })
+            .catch(() => console.error("Помилка ініціалізації первинних даних"));
+    });
+
+    // 1. Отримання тексту (TEXT)
+    function getWorkersText() {
+        const chief = document.getElementById('chief_name').value;
+        fetch('/get_workers_text.php?chief_name=' + encodeURIComponent(chief))
+            .then(res => res.text())
+            .then(data => { document.getElementById('res_text').innerHTML = data; });
+    }
+
+    // 2. Отримання XML
+    function getProjectTimeXML() {
+        const pid = document.getElementById('project_id_xml').value;
+        const resDiv = document.getElementById('res_xml');
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/get_project_time_xml.php?project_id=' + pid + '&t=' + Date.now(), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                let xmlDoc = xhr.responseXML;
+                if (!xmlDoc || xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                    const parser = new DOMParser();
+                    xmlDoc = parser.parseFromString(xhr.responseText.trim(), "text/xml");
+                }
+                try {
+                    const hours = xmlDoc.getElementsByTagName("hours")[0].textContent;
+                    resDiv.innerHTML = "<b>Загальний час:</b> " + hours + " год.";
+                } catch (e) {
+                    resDiv.innerHTML = "<span style='color:red;'>Помилка структури XML.</span>";
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    // 3. Динамічне отримання дат для списку (JSON)
+    async function updateDates() {
+        const pid = document.getElementById('project_id_json').value;
+        const dateSelect = document.getElementById('task_date_select');
+        if (!pid) return;
+
+        try {
+            const response = await fetch(`/get_dates.php?project_id=${pid}&t=${Date.now()}`);
+            const dates = await response.json();
+
+            dateSelect.innerHTML = "";
+            if (dates.length === 0) {
+                dateSelect.innerHTML = "<option value=''>Даних немає</option>";
+                return;
+            }
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date;
+                dateSelect.appendChild(option);
+            });
+        } catch (e) {
+            console.error("Помилка завантаження дат");
+        }
+    }
+
+    // 4. Отримання списку завдань (JSON)
+    async function getTasksJSON() {
+        const pid = document.getElementById('project_id_json').value;
+        const date = document.getElementById('task_date_select').value;
+        const resDiv = document.getElementById('res_json');
+
+        if (!date || date === "Спочатку оберіть проєкт") {
+            resDiv.innerHTML = "Будь ласка, оберіть проєкт та дату.";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/get_tasks_json.php?project_id=${pid}&task_date=${date}&t=${Date.now()}`);
+            const data = await response.json();
+
+            if (data.length === 0) {
+                resDiv.innerHTML = "Завдань не знайдено.";
+                return;
+            }
+
+            let html = "<table><tr><th>Опис</th><th>Початок</th><th>Кінець</th></tr>";
+            data.forEach(item => {
+                html += `<tr>
+                    <td>${item.description}</td>
+                    <td>${item.time_start}</td>
+                    <td>${item.time_end}</td>
+                </tr>`;
+            });
+            html += "</table>";
+            resDiv.innerHTML = html;
+        } catch (e) {
+            resDiv.innerHTML = "<span style='color:red;'>Помилка JSON.</span>";
+        }
+    }
+    </script>
+
+</body>
+</html>
