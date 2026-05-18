@@ -131,7 +131,7 @@
     </div>
 
     <script>
-    // Автоматичне завантаження даних у списки при старті сторінки (Заміна PHP циклів foreach)
+
     document.addEventListener("DOMContentLoaded", () => {
         fetch('/api/init-data')
             .then(res => res.json())
@@ -157,7 +157,7 @@
             .catch(() => console.error("Помилка ініціалізації первинних даних"));
     });
 
-    // 1. Отримання тексту (TEXT)
+    
     function getWorkersText() {
         const chief = document.getElementById('chief_name').value;
         fetch('/get_workers_text.php?chief_name=' + encodeURIComponent(chief))
@@ -165,7 +165,6 @@
             .then(data => { document.getElementById('res_text').innerHTML = data; });
     }
 
-    // 2. Отримання XML
     function getProjectTimeXML() {
         const pid = document.getElementById('project_id_xml').value;
         const resDiv = document.getElementById('res_xml');
@@ -189,7 +188,6 @@
         xhr.send();
     }
 
-    // 3. Динамічне отримання дат для списку (JSON)
     async function updateDates() {
         const pid = document.getElementById('project_id_json').value;
         const dateSelect = document.getElementById('task_date_select');
@@ -215,7 +213,7 @@
         }
     }
 
-    // 4. Отримання списку завдань (JSON)
+    
     async function getTasksJSON() {
         const pid = document.getElementById('project_id_json').value;
         const date = document.getElementById('task_date_select').value;
